@@ -1,0 +1,310 @@
+{
+  "csv_tokenizing": [
+    {
+      "question": "The density of population is the ratio between the numbers of people to the size of land.;\nWhich country where the majority of people speak English ha",
+      "predicted_sql": "WITH `english_countries` AS (\n    SELECT \n        `c`.`code`,\n        `c`.`name`,\n        `c`.`population`,\n        `c`.`surface_area`,\n        (`c`.`population` / `c`.`surface_area`) AS `density`\n    FROM `country` `c`\n    JOIN `countrylanguage` `cl` ON `cl`.`country_code` = `c`.`code`\n    WHERE `cl",
+      "gold_sql": "SELECT Name , ( 100.0 * Population / SurfaceArea ) / ( SELECT MIN ( 100.0 * Population / SurfaceArea ) FROM country WHERE 100.0 * Population / SurfaceArea > 0 ) AS times FROM country WHERE Code IN ( SELECT CountryCode FROM ( SELECT * , MAX ( Percentage ) FROM countrylanguage GROUP BY CountryCode ) WHERE Language = \"English\" ) ORDER BY 100.0 * Population / SurfaceArea DESC LIMIT 1",
+      "error": "Error tokenizing ' ON `cl`.`country_code` = `c`.`code`\n    WHERE `c'",
+      "db_id": "world_1",
+      "difficulty": "simple"
+    },
+    {
+      "question": "In countries where Dutch is not the main language, which country has the largest reduction in GNP?",
+      "predicted_sql": "SELECT `c`.`name`, (`c`.`gnp_old` - `c`.`gnp`) AS `reduction`\nFROM `country` AS `c`\nWHERE NOT EXISTS (\n    SELECT 1\n    FROM `countrylanguage` AS `cl`\n    WHERE `cl`.`country_code` = `c`.`code`\n      AND `cl`.`language` = 'Dutch'\n      AND `cl`.`is_official` = '",
+      "gold_sql": "SELECT Name FROM country WHERE Code NOT IN ( SELECT CountryCode FROM ( SELECT CountryCode , Language , MAX ( Percentage ) FROM countrylanguage GROUP BY CountryCode ) WHERE Language = \"Dutch\" ) ORDER BY GNPOld - GNP DESC LIMIT 1",
+      "error": "Error tokenizing 'guage` = 'Dutch'\n      AND `cl`.`is_official` = '",
+      "db_id": "world_1",
+      "difficulty": "simple"
+    }
+  ],
+  "missing_keyword": [
+    {
+      "question": "What are the ID and name of each concert held at Somerset Park stadium, and what percentage of the singers in each of these concert are female singers",
+      "predicted_sql": "SELECT c.concert_id, c.concert_name,\n       CASE WHEN COUNT(s.singer_id) =",
+      "gold_sql": "SELECT t1.concert_ID, t1.concert_Name, 100.0 * n_female / n AS female_proportion FROM (SELECT A.concert_ID, A.concert_Name, COUNT (*) AS n_female FROM concert A JOIN singer_in_concert B ON A.concert_ID = B.concert_ID JOIN singer C ON B.Singer_ID = C.Singer_ID JOIN stadium D ON D.Stadium_ID = A.Stadium_ID WHERE D.Name = \"Somerset Park\" AND C.Is_male = \"F\" GROUP BY A.concert_ID UNION ALL SELECT A.co",
+      "error": "Required keyword: 'expression' missing for <class 'sqlglot.expressions.EQ'>. Line 2, Col: 37.\n  SELECT c.concert_id, c.concert_name,\n       CASE WHEN COUNT(s.singer_id) \u001b[4m=\u001b[0m",
+      "db_id": "concert_singer",
+      "difficulty": "simple"
+    },
+    {
+      "question": "hydrogen refers to element = 'h'; label = '+' mean molecules are carcinogenic; percentage = DIVIDE(SUM(label = '+' and element = 'h'), COUNT(molecule_",
+      "predicted_sql": "SELECT \n    (",
+      "gold_sql": "SELECT CAST(COUNT(CASE WHEN T1.element = 'h' AND T2.label = '+' THEN T2.molecule_id ELSE NULL END) AS REAL) * 100 / COUNT(T2.molecule_id) FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id",
+      "error": "Required keyword: 'this' missing for <class 'sqlglot.expressions.Paren'>. Line 2, Col: 5.\n  SELECT \n    \u001b[4m(\u001b[0m",
+      "db_id": "toxicology",
+      "difficulty": "moderate"
+    }
+  ],
+  "timeout": [
+    {
+      "question": "A3 refers to region names; A15 stands for the average number of crimes commited in 1995.;\nWhat is the average number of crimes committed in 1995 in re",
+      "predicted_sql": "SELECT AVG(d.a15) AS avg_crimes_1995\nFROM district d\nWHERE d.a15 > 4000\n  AND EXISTS (\n    SELECT 1\n    FROM account a\n    WHERE a.district_id = d.district_id\n      AND a.date >= TIMESTAMP '1997-01-01 00:00:00'\n  );",
+      "gold_sql": "SELECT AVG(T1.A15) FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id WHERE STRFTIME('%Y', T2.date) >= '1997' AND T1.A15 > 4000",
+      "error": "Pipeline execution failed at `step=load` when processing package with `load_id=1763121194.2729669` with exception:\n\n<class 'TimeoutError'>\nQuery comparison timed out after 120 seconds",
+      "db_id": "financial",
+      "difficulty": "moderate"
+    }
+  ],
+  "parser_error": [
+    {
+      "question": "fastest lap refers to min(milliseconds); Alex Yoong refers to the full name of the driver; Full name of the driver refers to drivers.forename and driv",
+      "predicted_sql": "SELECT r.name AS race, r.year\nFROM lap_times lt\nJOIN drivers d ON lt.driver_id = d.driver_id\nJOIN races r ON lt.race_id = r.race_id\nWHERE d.forename = 'Michael' AND d.surname = 'Schumacher",
+      "gold_sql": "SELECT T1.name, T1.year FROM races AS T1 INNER JOIN lapTimes AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.forename = 'Michael' AND T3.surname = 'Schumacher' ORDER BY T2.milliseconds ASC LIMIT 1",
+      "error": "Parser Error: unterminated quoted string at or near \"'Schumacher\"",
+      "db_id": "formula_1",
+      "difficulty": "moderate"
+    },
+    {
+      "question": "name of players refers to player_name; Belgium is name of country;\nState the name of players who came from Belgium.",
+      "predicted_sql": "SELECT player_name FROM player WHERE player_api_id IN (SELECT home_player_1 FROM match WHERE country_id = (SELECT id FROM country WHERE name = 'Belgium') UNION SELECT home_player_2 FROM match WHERE country_id = (SELECT id FROM country WHERE name = 'Belgium') UNION SELECT home_player_3 FROM match WHERE country_id = (SELECT id FROM country WHERE name = 'Belgium') UNION SELECT home_player_4 FROM matc",
+      "gold_sql": "SELECT t3.player_name FROM Country AS t1 INNER JOIN Match AS t2 ON t1.id = t2.country_id INNER JOIN Player AS t3 ON t2.home_player_1 = t3.player_api_id WHERE t1.name = 'Belgium'",
+      "error": "Parser Error: unterminated quoted string at or near \"'Bel\"",
+      "db_id": "european_football_2",
+      "difficulty": "simple"
+    }
+  ],
+  "datafusion_limitation": [
+    {
+      "question": "college most members go refers to MAX(COUNT(major.college));\nWhich college do most of the members go to?",
+      "predicted_sql": "SELECT \"maj\".\"college\"\nFROM \"member\" AS \"mem\"\nJOIN \"major\" AS \"maj\" ON \"mem\".\"link_to_major\" = \"maj\".\"major_id\"\nGROUP BY \"maj\".\"college\"\nORDER BY COUNT(*) DESC\nLIMIT 1;",
+      "gold_sql": "SELECT T2.college FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id GROUP BY T2.major_id ORDER BY COUNT(T2.college) DESC LIMIT 1",
+      "error": "DataFusion error: NotImplemented(\"Physical plan does not support logical expression AggregateFunction(AggregateFunction { func: AggregateUDF { inner: Count { name: \\\"count\\\", signature: Signature { type_signature: OneOf([VariadicAny, Nullary]), volatility: Immutable } } }, params: AggregateFunctionP",
+      "db_id": "student_club",
+      "difficulty": "simple"
+    },
+    {
+      "question": "When was the examination taken refers to `Examination Date`;\nState the sex and birthday of patient ID '163109'. When was the examination taken and wha",
+      "predicted_sql": "SELECT \"p\".\"SEX\", \"p\".\"Birthday\", \"e\".\"Examination Date\", \"e\".\"Symptoms\"\nFROM \"Patient\" AS \"p\"\nJOIN \"Examination\" AS \"e\"\n  ON CAST(\"p\".\"ID\" AS float64) = \"e\".\"ID\"\nWHERE \"p\".\"ID\" = 163109;",
+      "gold_sql": "SELECT T1.SEX, T1.Birthday, T2.`Examination Date`, T2.Symptoms FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE T1.ID = 163109",
+      "error": "DataFusion error: NotImplemented(\"Unsupported SQL type Float64\")",
+      "db_id": "thrombosis_prediction",
+      "difficulty": "simple"
+    }
+  ],
+  "type_mismatch": [
+    {
+      "question": "label = '+' mean molecules are carcinogenic; label = '-' means molecules are non-carcinogenic;\nWhat is the label for bond ID TR001_10_11?",
+      "predicted_sql": "SELECT \"m\".\"label\"\nFROM \"bond\" AS \"b\"\nJOIN \"molecule\" AS \"m\"\n  ON \"b\".\"molecule_id\" = \"m\".\"molecule_id\"\nWHERE \"b\".\"bond_id\" = 'TR001_10_11';",
+      "gold_sql": "SELECT T2.label FROM bond AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.bond_id = 'TR001_10_11'",
+      "error": "DataFusion error: Internal(\"PhysicalOptimizer rule 'join_selection' failed. Schema mismatch. Expected original schema: Schema { fields: [Field { name: \\\"label\\\", data_type: Utf8, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: {} }], metadata: {\\\"pandas\\\": \\\"{\\\\\\\"index_columns\\\\\\\": [{\\",
+      "db_id": "toxicology",
+      "difficulty": "challenging"
+    },
+    {
+      "question": "full name refers to first_name, last_name;;\nPlease list the full names of the students in the Student_Club that come from the Art and Design Departmen",
+      "predicted_sql": "SELECT concat(\"m\".\"first_name\", ' ', \"m\".\"last_name\") AS \"full_name\"\nFROM \"member\" AS \"m\"\nJOIN \"major\" AS \"maj\" ON \"m\".\"link_to_major\" = \"maj\".\"major_id\"\nWHERE \"maj\".\"department\" = 'Art and Design'",
+      "gold_sql": "SELECT T1.first_name, T1.last_name FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T2.department = 'Art and Design Department'",
+      "error": "DataFusion error: Internal(\"PhysicalOptimizer rule 'join_selection' failed. Schema mismatch. Expected original schema: Schema { fields: [Field { name: \\\"full_name\\\", data_type: Utf8, nullable: true, dict_id: 0, dict_is_ordered: false, metadata: {} }], metadata: {\\\"pandas\\\": \\\"{\\\\\\\"index_columns\\\\\\\":",
+      "db_id": "student_club",
+      "difficulty": "simple"
+    }
+  ],
+  "subquery_error": [
+    {
+      "question": "Name the continent whose rate of growth of GNP is no less than 1.5 times that of Africa?",
+      "predicted_sql": "WITH continent_gnp_growth AS (\n  SELECT \"CONTINENT\", (\"GNP\" - \"GNP_OLD\") / NULLIF(\"GNP_OLD\", 0) AS gnp_growth_rate\n  FROM \"COUNTRY\"\n),\nafrica_gnp_growth AS (\n  SELECT gnp_growth_rate\n  FROM continent_gnp_growth\n  WHERE \"CONTINENT\" = 'Africa'\n)\nSELECT \"CONTINENT\"\nFROM continent_gnp_growth\nWHERE gnp_growth_rate >= (SELECT gnp_growth_rate FROM africa_gnp_growth) * 1.5;",
+      "gold_sql": "SELECT Continent FROM country GROUP BY Continent HAVING 100.0 * ( SUM ( GNP ) - SUM ( GNPOld ) ) / SUM ( GNPOld ) > 1.5 * ( SELECT 100.0 * ( SUM ( GNP ) - SUM ( GNPOld ) ) / SUM ( GNPOld ) FROM country WHERE Continent = \"Africa\" )",
+      "error": "090150 (22000): Single-row subquery returns more than one row.",
+      "db_id": "world_1",
+      "difficulty": "simple"
+    },
+    {
+      "question": "Which city in North America has a population at least twice that of Kang-won?",
+      "predicted_sql": "SELECT \"C1\".\"NAME\" \nFROM \"CITY\" AS \"C1\" \nJOIN \"COUNTRY\" AS \"C2\" ON \"C1\".\"COUNTRY_CODE\" = \"C2\".\"CODE\" \nWHERE \"C2\".\"REGION\" = 'North America' \nAND \"C1\".\"POPULATION\" >= 2 * ( \n    SELECT \"C3\".\"POPULATION\" \n    FROM \"CITY\" AS \"C3\" \n    WHERE \"C3\".\"DISTRICT\" = 'Kang-won'\n)",
+      "gold_sql": "SELECT B.name FROM country A JOIN city B ON A.Code = B.CountryCode WHERE A.Continent = \"North America\" AND B.Population >= 2 * ( SELECT SUM ( Population ) FROM city WHERE District = \"Kang-won\" )",
+      "error": "090150 (22000): Single-row subquery returns more than one row.",
+      "db_id": "world_1",
+      "difficulty": "moderate"
+    }
+  ],
+  "division_by_zero": [
+    {
+      "question": "The density of population is the ratio between the numbers of people to the size of land.;\nWhich country where the majority of people speak English ha",
+      "predicted_sql": "WITH country_density AS (\n  SELECT \"c\".\"CODE\", \"c\".\"NAME\", \"c\".\"POPULATION\" / \"c\".\"SURFACE_AREA\" AS population_density\n  FROM \"COUNTRY\" AS \"c\"\n),\ncountry_language AS (\n  SELECT \"cl\".\"COUNTRY_CODE\", \"cl\".\"LANGUAGE\", \"cl\".\"PERCENTAGE\"\n  FROM \"COUNTRYLANGUAGE\" AS \"cl\"\n  WHERE \"cl\".\"LANGUAGE\" = 'English' AND \"cl\".\"IS_OFFICIAL\" = 'T'\n),\nmax_min_density AS (\n  SELECT MAX(\"cd\".population_density) AS max_",
+      "gold_sql": "SELECT Name , ( 100.0 * Population / SurfaceArea ) / ( SELECT MIN ( 100.0 * Population / SurfaceArea ) FROM country WHERE 100.0 * Population / SurfaceArea > 0 ) AS times FROM country WHERE Code IN ( SELECT CountryCode FROM ( SELECT * , MAX ( Percentage ) FROM countrylanguage GROUP BY CountryCode ) WHERE Language = \"English\" ) ORDER BY 100.0 * Population / SurfaceArea DESC LIMIT 1",
+      "error": "100051 (22012): Division by zero",
+      "db_id": "world_1",
+      "difficulty": "simple"
+    },
+    {
+      "question": "The density of population is the ratio between the numbers of people to the size of land.;\nAmong the countries in which English is the most spoken lan",
+      "predicted_sql": "WITH country_language_ranks AS (\n  SELECT \"COUNTRY_CODE\", \"LANGUAGE\", ROW_NUMBER() OVER (PARTITION BY \"COUNTRY_CODE\" ORDER BY \"PERCENTAGE\" DESC) AS \"rank\"\n  FROM \"COUNTRYLANGUAGE\"\n),\nmost_spoken_language_countries AS (\n  SELECT \"COUNTRY_CODE\", \"LANGUAGE\"\n  FROM country_language_ranks\n  WHERE \"rank\" = 1 AND \"LANGUAGE\" = 'English'\n),\ncountry_population_density AS (\n  SELECT \"C\".\"CODE\", \"C\".\"POPULATI",
+      "gold_sql": "SELECT Name , ( 100.0 * Population / SurfaceArea ) / ( SELECT MIN ( 100.0 * Population / SurfaceArea ) FROM country WHERE 100.0 * Population / SurfaceArea > 0 ) AS times FROM country WHERE Code IN ( SELECT CountryCode FROM ( SELECT * , MAX ( Percentage ) FROM countrylanguage GROUP BY CountryCode ) WHERE Language = \"English\" ) ORDER BY 100.0 * Population / SurfaceArea DESC LIMIT 1",
+      "error": "100051 (22012): Division by zero",
+      "db_id": "world_1",
+      "difficulty": "simple"
+    }
+  ],
+  "object_not_exist": [
+    {
+      "question": "Age is calculated by substracting date of birth from a given date.;\nSingers born before 1980 earn $355 per concert, while singers born after 1980 earn",
+      "predicted_sql": "WITH singer_payment AS (\n  SELECT \n    \"s\".\"SINGER_ID\", \n    CASE \n      WHEN \"s\".\"AGE\" > (2023 - 1980) THEN 228 \n      ELSE 355 \n    END AS \"payment_per_concert\"\n  FROM \n    \"SINGER\" AS \"s\"\n),\nconcert_stadium AS (\n  SELECT \n    \"c\".\"CONCERT_ID\", \n    \"st\".\"NAME\" AS \"stadium_name\"\n  FROM \n    \"CONCERT\" AS \"c\"\n  JOIN \n    \"STADIUM\" AS \"st\" ON \"c\".\"STADIUM_ID\" = \"st\".\"STADIUM_ID\"\n),\ntotal_payment AS",
+      "gold_sql": "SELECT p1 + p2 AS cost FROM ( SELECT 355 * ( COUNT ( * ) ) AS p1 FROM concert A JOIN singer_in_concert B ON A.concert_ID = B.concert_ID JOIN singer C ON B.Singer_ID = C.Singer_ID JOIN stadium D ON A.Stadium_ID = D.Stadium_ID WHERE D.Name = \"Somerset Park\" AND strftime ( \"%Y\" , \"now\" ) - C.Age < 1980 ) JOIN ( SELECT 228 * ( COUNT ( * ) ) AS p2 FROM concert A JOIN singer_in_concert B ON A.concert_ID",
+      "error": "002003 (42S02): SQL compilation error:\nObject '\"singer_payment\"' does not exist or not authorized.",
+      "db_id": "concert_singer",
+      "difficulty": "simple"
+    },
+    {
+      "question": "What languages are only used by a single country with a republic government?",
+      "predicted_sql": "SELECT \"language\"\nFROM \"countries\"\nGROUP BY \"language\"\nHAVING COUNT(DISTINCT \"country\") = 1\n   AND MAX(CASE WHEN \"government_type\" ILIKE '%Republic%' THEN 1 ELSE 0 END) = 1;",
+      "gold_sql": "SELECT T2.Language FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode WHERE T1.GovernmentForm  =  \"Republic\" GROUP BY T2.Language HAVING COUNT(*)  =  1",
+      "error": "002003 (42S02): SQL compilation error:\nObject '\"countries\"' does not exist or not authorized.",
+      "db_id": "world_1",
+      "difficulty": "simple"
+    }
+  ],
+  "other": [
+    {
+      "question": "Age is calculated by substracting date of birth from a given date.;\nWhat are the names of the \"Home Visits\" concert singer, and how old will they be o",
+      "predicted_sql": "SELECT \"S\".\"NAME\", \n       DATE_PART(YEAR, '2023-01-01'::DATE - (\"S\".\"AGE\"::DATE)) + 20 - DATE_PART(YEAR, '2003-01-01'::DATE) + \"S\".\"AGE\" \n       AS \"AGE_ON_20TH_ANNIVERSARY\" \nFROM \"SINGER\" AS \"S\" \nJOIN \"SINGER_IN_CONCERT\" AS \"SIC\" ON \"S\".\"SINGER_ID\" = \"SIC\".\"SINGER_ID\" \nJOIN \"CONCERT\" AS \"C\" ON \"SIC\".\"CONCERT_ID\" = \"C\".\"CONCERT_ID\" \nWHERE \"C\".\"CONCERT_NAME\" = 'Home Visits' AND \"C\".\"YEAR\" = '2003'",
+      "gold_sql": "SELECT C.Name , A.Year - strftime ( \"%Y\" , \"now\" ) + C.Age + 20 AS target_age FROM concert A JOIN singer_in_concert B ON A.concert_ID = B.concert_ID JOIN singer C ON B.Singer_ID = C.Singer_ID WHERE A.concert_Name = \"Home Visits\"",
+      "error": "001007 (22023): SQL compilation error:\ninvalid type [CAST(S.AGE AS DATE)] for parameter 'TO_DATE'",
+      "db_id": "concert_singer",
+      "difficulty": "simple"
+    },
+    {
+      "question": "The time duration is calculated by substracting the start time from the end time.;\nHow many years ago did the first concert occur?",
+      "predicted_sql": "SELECT TIMESTAMPDIFF(YEAR, MIN(\"YEAR\"::int), EXTRACT(YEAR FROM CURRENT_DATE)) FROM \"CONCERT\"",
+      "gold_sql": "SELECT strftime ( \"%Y\" , \"now\" ) - MIN ( Year ) AS years FROM concert",
+      "error": "001044 (42P13): SQL compilation error: error line 1 at position 7\nInvalid argument types for function 'DATE_DIFFTIMESTAMPINYEARS': (NUMBER(38,0), NUMBER(4,0))",
+      "db_id": "concert_singer",
+      "difficulty": "moderate"
+    }
+  ],
+  "syntax_error": [
+    {
+      "question": "Show ids of all students who do not have any friends.",
+      "predicted_sql": "SELECT id FROM sqlite_import_7b6b4a06.highschooler WHERE id NOT IN (SELECT student_id FROM sqlite_import_7b6b4a06.friend UNION SELECT friend_id FROM sqlite_import_7b6b4a06.friend)",
+      "gold_sql": "SELECT id FROM Highschooler EXCEPT SELECT student_id FROM Friend",
+      "error": "400 POST https://bigquery.googleapis.com/bigquery/v2/projects/text2python2dsl/jobs?prettyPrint=false: Syntax error: Expected keyword ALL or keyword DISTINCT but got keyword SELECT at [1:128]\n\nLocation: None\nJob ID: e497a0a2-f5dd-4bf1-b87d-0abd4e4b4ca6",
+      "db_id": "network_1",
+      "difficulty": "simple"
+    },
+    {
+      "question": "hydrogen refers to element = 'h'; label = '+' mean molecules are carcinogenic; percentage = DIVIDE(SUM(label = '+' and element = 'h'), COUNT(molecule_",
+      "predicted_sql": "SELECT \n    SUM(CASE WHEN T1.label = '+' AND T2.element = 'h' THEN 1 ELSE 0 END) * 100.0 / COUNT(DISTINCT T1.molecule_id) \nFROM \n    molecule T1 \nJOIN \n    atom T2 ON T1.molecule_id = T2.molecule_id \nWHERE \n    T1.label = '+' AND T2.element = 'h' \nOR \n    T1.molecule_id IN (SELECT molecule_id FROM molecule WHERE label = '+') \nGROUP BY \n    'result' \nUNION ALL \nSELECT \n    0 \nWHERE \n    (SELECT COU",
+      "gold_sql": "SELECT CAST(COUNT(CASE WHEN T1.element = 'h' AND T2.label = '+' THEN T2.molecule_id ELSE NULL END) AS REAL) * 100 / COUNT(T2.molecule_id) FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id",
+      "error": "Parser Error: syntax error at or near \"However\"",
+      "db_id": "toxicology",
+      "difficulty": "moderate"
+    }
+  ],
+  "datafusion_error": [
+    {
+      "question": "Age is calculated by subtracting date of birth from a given date.;\nAccording to Zambia's life expectancy, what is the expected year of death for peopl",
+      "predicted_sql": "SELECT CAST(EXTRACT(YEAR FROM (TO_TIMESTAMP(\"IndepYear\") + INTERVAL '1 year' * \"LifeExpectancy\")) AS int64) \nFROM \"country\" \nWHERE \"Name\" = 'Zambia'",
+      "gold_sql": "SELECT CAST ( IndepYear + LifeExpectancy AS INT ) AS death_year FROM country WHERE name = \"Zambia\"",
+      "error": "DataFusion error: Diagnostic(Diagnostic { kind: Error, message: \"expressions have incompatible types\", span: None, notes: [DiagnosticNote { message: \"has type Interval(MonthDayNano)\", span: None }, DiagnosticNote { message: \"has type Float64\", span: None }], helps: [] }, Plan(\"Cannot coerce arithmet",
+      "db_id": "world_1",
+      "difficulty": "simple"
+    },
+    {
+      "question": "Which continent speaks the most languages?",
+      "predicted_sql": "SELECT \"T1\".\"Continent\" FROM \"country\" AS \"T1\" JOIN \"countrylanguage\" AS \"T2\" ON \"T1\".\"Code\" = \"T2\".\"CountryCode\" GROUP BY \"T1\".\"Continent\" ORDER BY COUNT(DISTINCT \"T2\".\"Language\") DESC LIMIT 1",
+      "gold_sql": "SELECT T1.Continent FROM country AS T1 JOIN countrylanguage AS T2 ON T1.Code  =  T2.CountryCode GROUP BY T1.Continent ORDER BY COUNT(*) DESC LIMIT 1",
+      "error": "DataFusion error: Context(\"type_coercion\", SchemaError(FieldNotFound { field: Column { relation: Some(Bare { table: \"T2\" }), name: \"Language\" }, valid_fields: [Column { relation: Some(Bare { table: \"T1\" }), name: \"Continent\" }] }, Some(\"\")))",
+      "db_id": "world_1",
+      "difficulty": "simple"
+    }
+  ],
+  "binder_error": [
+    {
+      "question": "\"csgillespie\" is the DisplayName of user; total number of comments refers to Sum(CommentCount);\nWhat is the total number of comments of all the posts ",
+      "predicted_sql": "SELECT SUM(CommentCount) AS total_comments FROM posts WHERE owner_user_id = (SELECT id FROM users WHERE display_name = 'csgillespie');",
+      "gold_sql": "SELECT SUM(T1.CommentCount) FROM posts AS T1 INNER JOIN users AS T2 ON T1.OwnerUserId = T2.Id WHERE T2.DisplayName = 'csgillespie'",
+      "error": "Binder Error: Referenced column \"CommentCount\" not found in FROM clause!\nCandidate bindings: \"comment_count\", \"community_owned_date\", \"favorite_count\", \"parent_id\", \"score\"\n\nLINE 1: DESCRIBE SELECT SUM(CommentCount) AS total_comments FROM posts WHERE owner_user_id...\n                            ^",
+      "db_id": "codebase_community",
+      "difficulty": "moderate"
+    },
+    {
+      "question": "magic card market name refers to mcmName;\nWhat's the magic card market name for the set which was released on 2017/6/9?",
+      "predicted_sql": "SELECT mcmName FROM sets WHERE release_date = '2017-06-09';",
+      "gold_sql": "SELECT mcmName FROM sets WHERE releaseDate = '2017-06-09'",
+      "error": "Binder Error: Referenced column \"mcmName\" not found in FROM clause!\nCandidate bindings: \"mcm_name\", \"mcm_id\", \"mcm_id_extras\", \"tcgplayer_group_id\", \"mtgo_code\"\n\nLINE 1: DESCRIBE SELECT mcmName FROM sets WHERE release_date = '2017-06-09';\n                        ^",
+      "db_id": "card_games",
+      "difficulty": "simple"
+    }
+  ],
+  "function_not_found": [
+    {
+      "question": "hydrogen refers to element = 'h'; label = '+' mean molecules are carcinogenic; percentage = DIVIDE(SUM(label = '+' and element = 'h'), COUNT(molecule_",
+      "predicted_sql": "SELECT DIVIDE(SUM(CASE WHEN m.label = '+' AND a.element = 'h' THEN 1 ELSE 0 END), COUNT(DISTINCT m.molecule_id)) * 100.0 AS percentage FROM sqlite_import_c1fac1bd.molecule m JOIN sqlite_import_c1fac1bd.atom a ON m.molecule_id = a.molecule_id;",
+      "gold_sql": "SELECT CAST(COUNT(CASE WHEN T1.element = 'h' AND T2.label = '+' THEN T2.molecule_id ELSE NULL END) AS REAL) * 100 / COUNT(T2.molecule_id) FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id",
+      "error": "400 POST https://bigquery.googleapis.com/bigquery/v2/projects/text2python2dsl/jobs?prettyPrint=false: Function not found: DIVIDE at [1:8]\n\nLocation: None\nJob ID: 5550aa49-3f29-48e7-9554-75a9382a868d",
+      "db_id": "toxicology",
+      "difficulty": "moderate"
+    }
+  ],
+  "column_not_found": [
+    {
+      "question": "The density of population is the ratio between the numbers of people to the size of land.;\nWhich country where the majority of people speak English ha",
+      "predicted_sql": "WITH country_density AS (\n  SELECT c.Code, c.Name, c.Population / c.SurfaceArea AS density\n  FROM country c\n),\nenglish_speaking_countries AS (\n  SELECT c.Code, c.Name, cl.Percentage\n  FROM country c\n  JOIN countrylanguage cl ON c.Code = cl.CountryCode\n  WHERE cl.Language = 'English' AND cl.Percentage > 50\n)\nSELECT \n  (SELECT density FROM country_density WHERE Code = (SELECT Code FROM english_speak",
+      "gold_sql": "SELECT Name , ( 100.0 * Population / SurfaceArea ) / ( SELECT MIN ( 100.0 * Population / SurfaceArea ) FROM country WHERE 100.0 * Population / SurfaceArea > 0 ) AS times FROM country WHERE Code IN ( SELECT CountryCode FROM ( SELECT * , MAX ( Percentage ) FROM countrylanguage GROUP BY CountryCode ) WHERE Language = \"English\" ) ORDER BY 100.0 * Population / SurfaceArea DESC LIMIT 1",
+      "error": "no such column: density",
+      "db_id": "world_1",
+      "difficulty": "simple"
+    },
+    {
+      "question": "Attendance rate is calculated by divding attendance amount by the capacity of the stadium.;\nWhat is the name of the stadium that has a highest attenda",
+      "predicted_sql": "SELECT T2.`name` \nFROM (\n  SELECT T1.stadium_id, T1.attendance / T3.capacity AS attendance_rate\n  FROM concert AS T1\n  JOIN stadium AS T3 ON T1.stadium_id = T3.stadium_id\n) AS T \nJOIN stadium AS T2 ON T.stadium_id = T2.stadium_id\nWHERE T.attendance_rate > (\n  SELECT T1.attendance / T3.capacity * 2 \n  FROM concert AS T1 \n  JOIN stadium AS T3 ON T1.stadium_id = T3.stadium_id \n  JOIN stadium AS T2 ON",
+      "gold_sql": "SELECT Name FROM stadium WHERE 100.0 * Highest / Capacity > 2 * ( SELECT 100.0 * Highest / Capacity FROM stadium WHERE Name = \"Balmoor\" )",
+      "error": "(1054, \"Unknown column 'T1.attendance' in 'field list'\")",
+      "db_id": "concert_singer",
+      "difficulty": "simple"
+    }
+  ],
+  "table_not_found": [
+    {
+      "question": "Age is calculated by substracting date of birth from a given date.;\nWhat are the names and ages of the participating singers in the concert with the t",
+      "predicted_sql": "SELECT s.name,\n       CAST(c.year AS BIGINT) - s.age AS age\nFROM concert",
+      "gold_sql": "SELECT C.Name , C.Age + ( A.Year - strftime ( \"%Y\" , \"now\" ) ) AS age_at_concert FROM concert A JOIN singer_in_concert B ON A.concert_ID = B.concert_ID JOIN singer C ON B.Singer_ID = C.Singer_ID WHERE A.Theme = \"Free choice\"",
+      "error": "Binder Error: Referenced table \"s\" not found!\nCandidate tables: \"concert\"\n\nLINE 1: DESCRIBE SELECT s.name,\n                        ^",
+      "db_id": "concert_singer",
+      "difficulty": "simple"
+    },
+    {
+      "question": "What are the IDs and names of the concerts held after 2012 and has more singers than the \"Happy Tonight\" themed concert, and how many times is it?",
+      "predicted_sql": "SELECT c.concert_id,\n       c.concert_name,\n       COUNT(DISTINCT sic.singer_id) AS singer_count",
+      "gold_sql": "SELECT A.concert_ID, A.concert_Name, 1.0 * COUNT (DISTINCT (B.Singer_ID)) / (SELECT COUNT (DISTINCT (B.Singer_ID)) FROM concert A JOIN singer_in_concert B ON A.concert_ID = B.concert_ID WHERE A.Theme = \"Happy Tonight\" ) AS times FROM concert A JOIN singer_in_concert B ON A.concert_ID = B.concert_ID WHERE A.Year > 2012 GROUP BY A.concert_ID HAVING COUNT (DISTINCT (B.Singer_ID)) > (SELECT COUNT (DIS",
+      "error": "Binder Error: Referenced table \"c\" not found!\n\nLINE 1: DESCRIBE SELECT c.concert_id,\n                        ^",
+      "db_id": "concert_singer",
+      "difficulty": "moderate"
+    }
+  ],
+  "api_http_error": [
+    {
+      "question": "Attendance rate is calculated by divding attendance amount by the capacity of the stadium.;\nWhat percentage of the concerts were held in the top three",
+      "predicted_sql": "WITH stadium_attendance AS (\n  SELECT stadium_id, (average / capacity) AS attendance_rate\n  FROM sqlite_import_d6d690e6.stadium\n),\ntop_stadiums AS (\n  SELECT stadium_id\n  FROM stadium_attendance\n  ORDER BY attendance_rate DESC\n  LIMIT 3\n),\nconcert_counts AS (\n  SELECT \n    COUNT(*) AS total_concerts,\n    COUNTIF(stadium_id IN (SELECT stadium_id FROM top_stadiums)) AS top_stadium_concerts\n  FROM sq",
+      "gold_sql": "SELECT 100.0 * COUNT ( * ) / ( SELECT COUNT ( * ) FROM concert ) AS percent FROM concert WHERE Stadium_ID IN ( SELECT Stadium_ID FROM stadium ORDER BY 100.0 * Average / Capacity DESC LIMIT 3 )",
+      "error": "400 POST https://bigquery.googleapis.com/bigquery/v2/projects/text2python2dsl/jobs?prettyPrint=false: Cannot execute IN subquery with uncomparable types STRING and INT64 at [14:13]\n\nLocation: None\nJob ID: 2c132177-c08d-4ca3-925c-53e06f57e165",
+      "db_id": "concert_singer",
+      "difficulty": "moderate"
+    },
+    {
+      "question": "GNP per capita is computed by dividing the GNP by the population.;\nName a continent whose per capita GNP growth rate exceeds Europe by at least two pe",
+      "predicted_sql": "SELECT c1.continent\nFROM sqlite_import_33005b87.country c1\nJOIN (\n    SELECT continent, AVG(gnp / population) AS gnp_per_capita\n    FROM sqlite_import_33005b87.country\n    WHERE continent = 'Europe'\n    GROUP BY continent\n) c2\nON c1.continent != c2.continent\nGROUP BY c1.continent\nHAVING AVG(c1.gnp / c1.population) > c2.gnp_per_capita * 1.02;",
+      "gold_sql": "SELECT Continent FROM country GROUP BY Continent HAVING 1.0 * ( SUM ( GNP ) / SUM ( Population ) - SUM ( GNPOld ) / SUM ( Population ) ) / ( SUM ( GNPOld ) / SUM ( Population ) ) >= ( SELECT 1.0 * ( SUM ( GNP ) / SUM ( Population ) - SUM ( GNPOld ) / SUM ( Population ) ) / ( SUM ( GNPOld ) / SUM ( Population ) ) FROM country WHERE Continent = \"Europe\" ) + 0.02",
+      "error": "400 POST https://bigquery.googleapis.com/bigquery/v2/projects/text2python2dsl/jobs?prettyPrint=false: HAVING clause expression references c2.gnp_per_capita which is neither grouped nor aggregated at [11:38]\n\nLocation: None\nJob ID: 0a316f75-6cd5-4e4f-96f6-9ce7b88ae7d5",
+      "db_id": "world_1",
+      "difficulty": "simple"
+    }
+  ],
+  "group_by_error": [
+    {
+      "question": "What is the name of the high schooler who has the greatest number of likes?",
+      "predicted_sql": "SELECT `h`.`name` \nFROM `highschooler` `h` \nJOIN `likes` `l` ON `h`.`id` = `l`.`liked_id` \nGROUP BY `h`.`id` \nORDER BY COUNT(*) DESC \nLIMIT 1;",
+      "gold_sql": "SELECT T2.name FROM Likes AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id GROUP BY T1.student_id ORDER BY count(*) DESC LIMIT 1",
+      "error": "(1055, \"Expression #1 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'sqlite_import_7b6b4a06.h.name' which is not functionally dependent on columns in GROUP BY clause; this is incompatible with sql_mode=only_full_group_by\")",
+      "db_id": "network_1",
+      "difficulty": "moderate"
+    },
+    {
+      "question": "hydrogen refers to element = 'h'; label = '+' mean molecules are carcinogenic; percentage = DIVIDE(SUM(label = '+' and element = 'h'), COUNT(molecule_",
+      "predicted_sql": "SELECT SUM(CASE WHEN m.label = '+' AND a.element = 'h' THEN 1 ELSE 0 END)::NUMERIC * 100.0 / COUNT(DISTINCT m.molecule_id) \nFROM molecule m \nJOIN atom a ON m.molecule_id = a.molecule_id \nWHERE m.label = '+' AND a.element = 'h' \nOR m.molecule_id IN (SELECT molecule_id FROM molecule WHERE label = '+') \nGROUP BY COUNT(DISTINCT m.molecule_id) \nis rewritten as \nSELECT SUM(CASE WHEN a.element = 'h' THEN",
+      "gold_sql": "SELECT CAST(COUNT(CASE WHEN T1.element = 'h' AND T2.label = '+' THEN T2.molecule_id ELSE NULL END) AS REAL) * 100 / COUNT(T2.molecule_id) FROM atom AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id",
+      "error": "Invalid expression / Unexpected token. Line 7, Col: 2.\n  id IN (SELECT molecule_id FROM molecule WHERE label = '+') \nGROUP BY COUNT(DISTINCT m.molecule_id) \n\u001b[4mis\u001b[0m rewritten as \nSELECT SUM(CASE WHEN a.element = 'h' THEN 1 ELSE 0 END)::NUMERIC * 100.0 / COUNT(DIST",
+      "db_id": "toxicology",
+      "difficulty": "moderate"
+    }
+  ]
+}

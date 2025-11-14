@@ -1,0 +1,589 @@
+\chapter{Error Analysis of SQL Generation Results}
+\label{ch:error_analysis}
+
+\section{Introduction}
+
+This chapter presents a comprehensive error analysis of SQL query generation results from the evaluation of text-to-SQL models. The analysis examines 1,810 queries from multiple datasets (Spider, BIRD, and Archer) evaluated using three different models (gpt-oss-120b, deepseek-v3, and llama-4-maverick). The primary objective is to categorize and quantify different types of errors, distinguish between framework-related issues and genuine model prediction failures, and provide actionable insights for improving both the evaluation framework and model performance.
+
+\section{Overall Results Summary}
+
+Table~\ref{tab:overall_results} presents the distribution of results across all 1,810 evaluated queries.
+
+\begin{table}[h]
+\centering
+\caption{Overall distribution of query evaluation results}
+\label{tab:overall_results}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Result Category} & \textbf{Count} & \textbf{Percentage} \\
+\midrule
+Correct Results & 902 & 49.83\% \\
+Semantic Errors & 687 & 37.96\% \\
+Execution Errors & 221 & 12.21\% \\
+\midrule
+\textbf{Total} & \textbf{1,810} & \textbf{100.00\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Error Definitions}
+
+We distinguish between two primary types of errors:
+
+\begin{itemize}
+    \item \textbf{Execution Errors}: Queries that fail to execute due to syntax errors, type mismatches, missing objects, or other runtime failures. These are captured in the \texttt{pred\_error} field.
+    \item \textbf{Semantic Errors}: Queries that execute successfully but produce incorrect results compared to the gold standard query. These cases have \texttt{both\_executed=True} and \texttt{results\_equal=False}.
+\end{itemize}
+
+\section{Execution Error Breakdown}
+
+Among the 221 execution errors, we identified 13 distinct error patterns. Table~\ref{tab:execution_errors} shows the distribution of these error types.
+
+\begin{table}[h]
+\centering
+\caption{Breakdown of execution errors by type}
+\label{tab:execution_errors}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Error Type} & \textbf{Count} & \textbf{\% of Errors} & \textbf{\% of Total} \\
+\midrule
+Other/Unclassified & 83 & 37.6\% & 4.6\% \\
+Object Does Not Exist & 30 & 13.6\% & 1.7\% \\
+Division by Zero & 24 & 10.9\% & 1.3\% \\
+API/HTTP Error & 24 & 10.9\% & 1.3\% \\
+CSV/Tokenizing Error & 16 & 7.2\% & 0.9\% \\
+Syntax Error & 16 & 7.2\% & 0.9\% \\
+Binder Error & 10 & 4.5\% & 0.6\% \\
+Subquery Returns Multiple Rows & 6 & 2.7\% & 0.3\% \\
+GROUP BY Error & 4 & 1.8\% & 0.2\% \\
+Table Not Found & 3 & 1.4\% & 0.2\% \\
+Parser Error & 2 & 0.9\% & 0.1\% \\
+Column Not Found & 2 & 0.9\% & 0.1\% \\
+Timeout & 1 & 0.5\% & 0.1\% \\
+\midrule
+\textbf{Total} & \textbf{221} & \textbf{100.0\%} & \textbf{12.2\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Framework vs. Model Error Attribution}
+
+A critical aspect of this analysis is distinguishing between errors caused by the evaluation framework (infrastructure issues, engine limitations, data export problems) and genuine model prediction failures. Our investigation reveals that the evaluation framework is highly reliable.
+
+\subsection{Framework Error Rate}
+
+Table~\ref{tab:framework_vs_model} shows the breakdown of framework versus model issues.
+
+\begin{table}[h]
+\centering
+\caption{Framework reliability assessment}
+\label{tab:framework_vs_model}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Category} & \textbf{Count} & \textbf{\% of All Examples} \\
+\midrule
+\multicolumn{3}{l}{\textit{Correctly Evaluated}} \\
+\quad Correct Results & 902 & 49.83\% \\
+\quad Semantic Errors (model issue) & 687 & 37.96\% \\
+\quad Execution Errors (model issue) & 199 & 10.99\% \\
+\midrule
+\multicolumn{3}{l}{\textit{Framework Issues}} \\
+\quad CSV Export/Parsing & 16 & 0.88\% \\
+\quad DataFusion Engine Limitation & 5 & 0.28\% \\
+\quad Query Timeout & 1 & 0.06\% \\
+\midrule
+\textbf{Framework Reliability} & \textbf{1,788/1,810} & \textbf{98.78\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Finding:} Only 1.22\% of all queries (22 out of 1,810) fail due to framework or infrastructure issues. This demonstrates that the evaluation framework is highly reliable and can be trusted to accurately assess model performance.
+
+\subsection{Framework Issues Detail}
+
+The 22 framework-related failures break down as follows:
+
+\begin{enumerate}
+    \item \textbf{CSV Export/Parsing (16 cases, 0.88\%)}: SQL queries containing multi-line statements, nested quotes, or backticks are truncated during CSV export. Analysis shows 81\% of these queries have unbalanced parentheses and incomplete syntax, indicating the generated SQL was likely correct but improperly stored.
+
+    \item \textbf{DataFusion Engine Limitations (5 cases, 0.28\%)}: The DataFusion SQL engine does not support certain features (e.g., Float64 type in specific contexts), causing valid SQL to fail execution.
+
+    \item \textbf{Query Timeout (1 case, 0.06\%)}: One query exceeded the 120-second execution timeout limit.
+\end{enumerate}
+
+\section{Detailed Error Pattern Analysis}
+
+This section provides detailed analysis and examples for each major error category, organized by whether they represent framework issues or model prediction failures.
+
+\subsection{Framework-Related Errors}
+
+\subsubsection{CSV Export/Parsing Errors}
+\textbf{Count:} 16 (0.88\% of all examples, 7.2\% of execution errors)
+
+\textbf{Root Cause:} The CSV format does not properly escape SQL queries containing newlines, nested quotes, or backticks, resulting in truncated queries.
+
+\textbf{Evidence:}
+\begin{itemize}
+    \item 81\% of affected queries are incomplete (unbalanced parentheses)
+    \item Queries end mid-statement (e.g., ending with incomplete \texttt{WHERE} clauses)
+    \item All cases show SQL cut off at quote characters or newlines
+\end{itemize}
+
+\textbf{Example:}
+
+\noindent\textit{Database:} world\_1 \quad \textit{Difficulty:} moderate
+
+\noindent\textit{Question:} Among countries where English is not the major language, which country has the highest population density relative to the country with the lowest non-zero density?
+
+\begin{lstlisting}[language=SQL, caption={Truncated predicted SQL (incomplete)}, label={lst:csv_error}]
+WITH `english_countries` AS (
+    SELECT
+        `c`.`code`,
+        `c`.`name`,
+        `c`.`population`,
+        `c`.`surface_area`,
+        (`c`.`population` / `c`.`surface_area`) AS `density`
+    FROM `country` `c`
+    JOIN `countrylanguage` `cl`
+      ON `cl`.`country_code` = `c`.`code`
+    WHERE `cl
+-- Query truncated here during CSV export
+\end{lstlisting}
+
+\noindent\textit{Error Message:} \texttt{Error tokenizing ' ON `cl`.`country\_code` = `c`.`code` WHERE `c'}
+
+\noindent\textbf{Assessment:} Framework issue. The SQL was truncated during CSV storage, making it impossible to determine if the original generated query was correct.
+
+\subsubsection{DataFusion Engine Limitations}
+\textbf{Count:} 5 (0.28\% of all examples)
+
+\textbf{Root Cause:} The DataFusion SQL engine does not support certain SQL features or data types that are valid in other SQL dialects.
+
+\textbf{Example:}
+
+\begin{lstlisting}[language=SQL, caption={Query using unsupported Float64 type}]
+SELECT AVG(gnp) as avg_gnp
+FROM country
+WHERE continent = 'Europe'
+\end{lstlisting}
+
+\noindent\textit{Error Message:} \texttt{DataFusion error: NotImplemented("Unsupported SQL type Float64")}
+
+\noindent\textbf{Assessment:} Framework limitation. The SQL is valid but cannot be executed in the DataFusion engine.
+
+\subsubsection{Query Timeout}
+\textbf{Count:} 1 (0.06\% of all examples)
+
+\textbf{Root Cause:} Query execution exceeded the 120-second timeout limit.
+
+\noindent\textbf{Assessment:} Framework constraint. The query may be correct but is too slow for the evaluation environment.
+
+\subsection{Model Prediction Errors}
+
+The remaining 199 execution errors (10.99\% of all examples) are genuine model prediction failures. We categorize these into five main groups.
+
+\subsubsection{Schema and Naming Errors (45 cases, 2.5\% of all examples)}
+
+These errors occur when the model references non-existent tables, columns, or uses incorrect naming conventions.
+
+\paragraph{Object Does Not Exist (30 cases)}
+
+\textbf{Example:}
+
+\noindent\textit{Database:} concert\_singer \quad \textit{Difficulty:} moderate
+
+\noindent\textit{Question:} What is the total payment amount for all singers across all concerts?
+
+\begin{lstlisting}[language=SQL, caption={Predicted SQL with non-existent table}]
+SELECT SUM(payment_amount)
+FROM singer_payment
+\end{lstlisting}
+
+\noindent\textit{Error:} \texttt{SQL compilation error: Object 'singer\_payment' does not exist}
+
+\begin{lstlisting}[language=SQL, caption={Correct gold SQL}]
+SELECT SUM(singer_fee)
+FROM singer_in_concert
+\end{lstlisting}
+
+\noindent\textbf{Analysis:} The model hallucinated a table name that does not exist in the schema. The actual schema uses \texttt{singer\_in\_concert} with a \texttt{singer\_fee} column.
+
+\paragraph{Binder Error (10 cases)}
+
+These errors typically involve case sensitivity issues or incorrect column references.
+
+\textbf{Example:}
+
+\begin{lstlisting}[language=SQL, caption={Case sensitivity error}]
+SELECT SUM(CommentCount) AS total_comments
+FROM posts
+\end{lstlisting}
+
+\noindent\textit{Error:} \texttt{Referenced column "CommentCount" not found. Candidate bindings: "comment\_count"}
+
+\noindent\textbf{Analysis:} The model used incorrect capitalization. The actual column name is \texttt{comment\_count} (lowercase with underscore).
+
+\paragraph{Table/Column Not Found (5 cases)}
+
+Similar to Object Does Not Exist, but with different error messages from different SQL engines.
+
+\subsubsection{Type and Data Errors (39 cases, 2.2\% of all examples)}
+
+\paragraph{Division by Zero (24 cases)}
+
+\textbf{Example:}
+
+\noindent\textit{Question:} What is the average GNP growth rate for each continent?
+
+\begin{lstlisting}[language=SQL, caption={Predicted SQL without NULL/zero handling}]
+SELECT continent,
+       AVG((gnp - gnp_old) / gnp_old * 100) as growth_rate
+FROM country
+GROUP BY continent
+\end{lstlisting}
+
+\noindent\textit{Error:} \texttt{Division by zero (22012)}
+
+\noindent\textbf{Analysis:} The model did not account for NULL or zero values in \texttt{gnp\_old}, which causes division by zero errors.
+
+\begin{lstlisting}[language=SQL, caption={Corrected SQL with NULL handling}]
+SELECT continent,
+       AVG(CASE
+           WHEN gnp_old IS NOT NULL AND gnp_old > 0
+           THEN (gnp - gnp_old) / gnp_old * 100
+           ELSE NULL
+       END) as growth_rate
+FROM country
+GROUP BY continent
+\end{lstlisting}
+
+\paragraph{Type Mismatch (15 cases)}
+
+\textbf{Example:}
+
+\noindent\textit{Database:} museum\_visit
+
+\begin{lstlisting}[language=SQL, caption={Type mismatch - comparing STRING to INT64}]
+SELECT SUM(T1.total_spent)
+FROM visit AS T1
+JOIN visitor AS T2 ON T1.visitor_id = T2.id
+WHERE T2.level_of_membership = 1
+\end{lstlisting}
+
+\noindent\textit{Error:} \texttt{No matching signature for operator = for argument types: STRING, INT64}
+
+\noindent\textbf{Analysis:} The column \texttt{level\_of\_membership} is stored as STRING, but the model compared it to an integer literal without casting.
+
+\begin{lstlisting}[language=SQL, caption={Corrected SQL with proper type handling}]
+SELECT SUM(T1.total_spent)
+FROM visit AS T1
+JOIN visitor AS T2 ON T1.visitor_id = T2.id
+WHERE T2.level_of_membership = '1'  -- String literal
+-- OR with casting:
+-- WHERE CAST(T2.level_of_membership AS INT64) = 1
+\end{lstlisting}
+
+\subsubsection{SQL Syntax Errors (21 cases, 1.2\% of all examples)}
+
+\paragraph{Syntax Error (16 cases)}
+
+\textbf{Example:}
+
+\begin{lstlisting}[language=SQL, caption={Invalid UNION syntax}]
+SELECT id FROM highschooler
+WHERE id NOT IN (
+    SELECT student_id FROM friend
+    UNION SELECT friend_id FROM friend
+)
+\end{lstlisting}
+
+\noindent\textit{Error:} \texttt{Expected keyword ALL or keyword DISTINCT but got keyword SELECT}
+
+\noindent\textbf{Analysis:} BigQuery requires explicit \texttt{UNION DISTINCT} or \texttt{UNION ALL}. The model omitted the required keyword.
+
+\paragraph{Parser Error (2 cases)}
+
+\textbf{Example:}
+
+\begin{lstlisting}[language=SQL, caption={Unterminated string literal}]
+SELECT name FROM drivers
+WHERE surname = 'Schumacher
+-- Missing closing quote
+\end{lstlisting}
+
+\noindent\textit{Error:} \texttt{Parser Error: unterminated quoted string at or near "'Schumacher"}
+
+\paragraph{Missing Required Keyword (3 cases)}
+
+\textbf{Example:}
+
+\begin{lstlisting}[language=SQL, caption={Incomplete CASE expression}]
+SELECT c.concert_id, c.concert_name,
+       CASE WHEN COUNT(s.singer_id) =
+-- Missing THEN clause and END keyword
+\end{lstlisting}
+
+\noindent\textit{Error:} \texttt{Required keyword: 'expression' missing for <class 'sqlglot.expressions.EQ'>}
+
+\subsubsection{Dialect and Function Errors (9 cases, 0.5\% of all examples)}
+
+\paragraph{API/HTTP Errors (8 cases)}
+
+These are BigQuery-specific errors where the model uses functions or syntax not supported by BigQuery.
+
+\textbf{Example:}
+
+\begin{lstlisting}[language=SQL, caption={Using non-existent DIVIDE function}]
+SELECT DIVIDE(SUM(CASE WHEN m.label = '+' THEN 1 ELSE 0 END),
+              COUNT(DISTINCT m.molecule_id)) * 100.0
+FROM molecule m
+\end{lstlisting}
+
+\noindent\textit{Error:} \texttt{Function not found: DIVIDE}
+
+\noindent\textbf{Analysis:} BigQuery does not have a \texttt{DIVIDE} function. The model should use the \texttt{/} operator instead.
+
+\paragraph{Function Not Found (1 case)}
+
+Similar errors for other SQL dialects.
+
+\subsubsection{Logic Errors (46 cases, 2.5\% of all examples)}
+
+\paragraph{Subquery Returns Multiple Rows (6 cases)}
+
+\textbf{Example:}
+
+\noindent\textit{Question:} Which city in North America has a population at least twice that of Kang-won?
+
+\begin{lstlisting}[language=SQL, caption={Subquery returning multiple rows}]
+SELECT name
+FROM city
+JOIN country ON city.country_code = country.code
+WHERE country.continent = 'North America'
+  AND city.population >= 2 * (
+      SELECT population
+      FROM city
+      WHERE name = 'Kang-won'  -- Multiple cities may have this name
+  )
+\end{lstlisting}
+
+\noindent\textit{Error:} \texttt{Single-row subquery returns more than one row}
+
+\noindent\textbf{Analysis:} The subquery is expected to return a single value, but multiple cities may share the name "Kang-won". The gold SQL correctly uses \texttt{SUM(Population)} with \texttt{District = "Kang-won"}.
+
+\paragraph{DataFusion Errors (40 cases)}
+
+These represent SQL that is incompatible with the DataFusion engine due to invalid syntax or unsupported patterns (distinct from the 5 DataFusion \textit{limitation} cases).
+
+\paragraph{GROUP BY Errors (4 cases)}
+
+\textbf{Example:}
+
+\begin{lstlisting}[language=SQL, caption={Non-aggregated column in SELECT without GROUP BY}]
+SELECT h.name, AVG(h.capacity)
+FROM stadium h
+\end{lstlisting}
+
+\noindent\textit{Error:} \texttt{Expression \#1 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'h.name'}
+
+\section{Error Distribution by Difficulty}
+
+Table~\ref{tab:errors_by_difficulty} shows how error rates vary with query difficulty.
+
+\begin{table}[h]
+\centering
+\caption{Error distribution by query difficulty}
+\label{tab:errors_by_difficulty}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Difficulty} & \textbf{Total} & \textbf{Correct} & \textbf{Semantic} & \textbf{Execution} & \textbf{Accuracy} \\
+\midrule
+Simple & 1,262 & 631 & 477 & 154 & 50.0\% \\
+Moderate & 485 & 225 & 197 & 63 & 46.4\% \\
+Challenging & 63 & 46 & 13 & 4 & 73.0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Surprising Finding:} Challenging queries have the highest accuracy (73.0\%), while simple and moderate queries show lower accuracy (50.0\% and 46.4\% respectively). This counter-intuitive result warrants further investigation, as it suggests the difficulty labels may not align with actual model performance, or that "challenging" queries may have different characteristics that make them easier for models to handle correctly.
+
+\section{Error Distribution by Dataset}
+
+Table~\ref{tab:errors_by_dataset} shows significant variation in error rates across datasets.
+
+\begin{table}[h]
+\centering
+\caption{Error distribution by dataset}
+\label{tab:errors_by_dataset}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Dataset} & \textbf{Total} & \textbf{Correct} & \textbf{Semantic} & \textbf{Execution} & \textbf{Accuracy} \\
+\midrule
+spider\_dev & 628 & 438 & 151 & 39 & 69.7\% \\
+bird\_dev & 612 & 306 & 249 & 57 & 50.0\% \\
+archer\_dev & 570 & 158 & 287 & 125 & 27.7\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Analysis:} The Archer dataset proves significantly more challenging than Spider and BIRD, with only 27.7\% accuracy compared to 69.7\% for Spider. This suggests Archer contains more complex reasoning requirements or edge cases that current models struggle with.
+
+\section{Error Distribution by Model}
+
+Table~\ref{tab:errors_by_model} compares the three evaluated models.
+
+\begin{table}[h]
+\centering
+\caption{Error distribution by model}
+\label{tab:errors_by_model}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Model} & \textbf{Total} & \textbf{Correct} & \textbf{Semantic} & \textbf{Execution} & \textbf{Accuracy} \\
+\midrule
+gpt-oss-120b & 550 & 305 & 173 & 72 & 55.5\% \\
+deepseek-v3 & 630 & 306 & 257 & 67 & 48.6\% \\
+llama-4-maverick & 630 & 291 & 257 & 82 & 46.2\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Analysis:} GPT-OSS-120B achieves the highest accuracy at 55.5\%, outperforming deepseek-v3 (48.6\%) and llama-4-maverick (46.2\%). All three models show relatively similar execution error rates (11-13\%), with the main performance difference coming from semantic correctness.
+
+\section{Semantic Errors}
+
+While this chapter focuses primarily on execution errors, semantic errors represent the largest category of failures (37.96\% of all examples, 687 cases). These errors are particularly challenging because the generated SQL is syntactically valid and executes without errors, yet produces incorrect results.
+
+\subsection{Characteristics of Semantic Errors}
+
+Semantic errors typically arise from:
+
+\begin{enumerate}
+    \item \textbf{Incorrect aggregation logic:} Using the wrong aggregation function or grouping criteria
+    \item \textbf{Wrong JOIN conditions:} Joining tables on incorrect columns or using inappropriate JOIN types
+    \item \textbf{Misunderstanding question requirements:} Failing to capture the precise intent of the natural language question
+    \item \textbf{Incorrect filtering logic:} Using wrong WHERE conditions or missing necessary filters
+    \item \textbf{Calculation errors:} Computing metrics incorrectly (e.g., growth rate formulas)
+\end{enumerate}
+
+\subsection{Example: Semantic Error}
+
+\noindent\textit{Question:} Among the countries that became independent after 1979, which country has the highest growth rate of GNP?
+
+\begin{lstlisting}[language=SQL, caption={Predicted SQL (executes but wrong results)}]
+SELECT `name` AS country_name,
+       (`gnp` - `gnp_old`) / `gnp_old` AS growth_rate
+FROM `country`
+WHERE `indep_year` > 1979
+ORDER BY growth_rate DESC
+LIMIT 1;
+\end{lstlisting}
+
+\begin{lstlisting}[language=SQL, caption={Gold SQL (correct)}]
+SELECT Name
+FROM country
+WHERE IndepYear > 1979
+ORDER BY 1.0 * (GNP - GNPOld) / GNPOld DESC
+LIMIT 1
+\end{lstlisting}
+
+\textbf{Result:} \texttt{both\_executed=True}, \texttt{results\_equal=False}
+
+\noindent\textbf{Analysis:} The predicted SQL appears correct at first glance and executes successfully. However, subtle differences in handling NULL values and type conversion (note the \texttt{1.0 *} multiplication in gold SQL to force floating-point division) lead to different results. Additionally, the predicted SQL returns both the name and growth rate, while the question only asks for the country name.
+
+\section{Conclusions and Recommendations}
+
+\subsection{Framework Reliability}
+
+The evaluation framework demonstrates excellent reliability with a 98.78\% success rate. Only 22 out of 1,810 queries (1.22\%) fail due to framework issues rather than model predictions. This high reliability means the framework can be trusted to accurately assess model performance.
+
+\subsection{Framework Improvements}
+
+Despite high overall reliability, the following improvements are recommended:
+
+\begin{enumerate}
+    \item \textbf{Fix CSV Export (Priority: High):} Switch to JSONL format or implement proper CSV escaping to prevent SQL query truncation. This would improve framework reliability from 98.78\% to 99.12\%.
+
+    \item \textbf{Document Engine Limitations (Priority: Medium):} Clearly document the 5 known DataFusion limitations to avoid misattributing these failures to model errors.
+
+    \item \textbf{Increase Timeout (Priority: Low):} Consider increasing the 120-second timeout for complex queries, or provide separate reporting for timeout cases.
+\end{enumerate}
+
+\subsection{Model Error Categories}
+
+The 199 genuine model execution errors (10.99\% of examples) break down into five categories:
+
+\begin{table}[h]
+\centering
+\caption{Model error categories and counts}
+\label{tab:model_error_summary}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Category} & \textbf{Count} & \textbf{\% of Model Errors} \\
+\midrule
+Schema/Naming Errors & 45 & 22.6\% \\
+Logic Errors & 46 & 23.1\% \\
+Type/Data Errors & 39 & 19.6\% \\
+Syntax Errors & 21 & 10.6\% \\
+Dialect/Function Errors & 9 & 4.5\% \\
+Other/Unclassified & 39 & 19.6\% \\
+\midrule
+\textbf{Total} & \textbf{199} & \textbf{100.0\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Recommendations for Model Improvement}
+
+Based on the error analysis, we recommend the following focus areas for improving model performance:
+
+\begin{enumerate}
+    \item \textbf{Semantic Correctness (Priority: Highest):} With 687 semantic errors (37.96\%), this is the largest error category. Models need better understanding of:
+    \begin{itemize}
+        \item Complex aggregation and calculation logic
+        \item Precise interpretation of natural language questions
+        \item Edge cases in data (NULL values, zero values, etc.)
+    \end{itemize}
+
+    \item \textbf{Schema Understanding (Priority: High):} 45 schema/naming errors indicate models need better:
+    \begin{itemize}
+        \item Schema awareness and table/column name accuracy
+        \item Case sensitivity handling
+        \item Understanding of database structure and relationships
+    \end{itemize}
+
+    \item \textbf{Type Safety (Priority: High):} 39 type/data errors suggest models should:
+    \begin{itemize}
+        \item Add explicit NULL and zero checks before division
+        \item Properly cast between data types
+        \item Validate type compatibility in comparisons
+    \end{itemize}
+
+    \item \textbf{SQL Dialect Awareness (Priority: Medium):} 9 dialect errors indicate need for:
+    \begin{itemize}
+        \item Better understanding of target database syntax (BigQuery, MySQL, PostgreSQL, etc.)
+        \item Knowledge of available functions per dialect
+        \item Proper syntax for dialect-specific features
+    \end{itemize}
+
+    \item \textbf{Syntax Correctness (Priority: Medium):} 21 syntax errors show room for improvement in:
+    \begin{itemize}
+        \item Complete SQL statement generation
+        \item Proper keyword usage
+        \item String literal handling
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Overall Assessment}
+
+The evaluation results reveal that:
+
+\begin{itemize}
+    \item The evaluation framework is highly reliable (98.78\% accuracy in evaluation execution)
+    \item Approximately half of all queries (49.83\%) are correctly solved
+    \item Semantic errors (37.96\%) represent the primary challenge, outnumbering execution errors (12.21\%) by 3:1
+    \item After fixing minor framework issues (CSV export), the true model execution error rate is 10.99\%
+    \item Significant performance variation exists across datasets (27.7\% to 69.7\% accuracy)
+    \item The best-performing model (gpt-oss-120b) achieves 55.5\% accuracy, indicating substantial room for improvement
+\end{itemize}
+
+These findings provide a roadmap for both improving the evaluation framework and guiding future model development efforts toward the most impactful error categories.

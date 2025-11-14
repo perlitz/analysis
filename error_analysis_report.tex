@@ -1,0 +1,175 @@
+\documentclass[11pt,a4paper]{report}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{enumitem}
+
+% Page layout
+\geometry{
+    left=1.5in,
+    right=1in,
+    top=1in,
+    bottom=1in
+}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=green,
+    pdftitle={SQL Generation Error Analysis},
+    pdfauthor={Error Analysis Report},
+}
+
+% Listings setup for SQL
+\lstdefinestyle{sqlstyle}{
+    language=SQL,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    stringstyle=\color{red},
+    commentstyle=\color{gray}\itshape,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    numbersep=8pt,
+    showstringspaces=false,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10},
+    captionpos=b,
+    tabsize=2,
+    xleftmargin=2em,
+    framexleftmargin=1.5em
+}
+
+\lstset{style=sqlstyle}
+
+% Custom commands
+\newcommand{\code}[1]{\texttt{#1}}
+
+\begin{document}
+
+% Title page
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+
+    {\Huge\bfseries Error Analysis of SQL Generation Results\par}
+    \vspace{1.5cm}
+
+    {\Large Comprehensive Evaluation of Text-to-SQL Model Performance\par}
+    \vspace{2cm}
+
+    {\large\itshape
+    Analysis of 1,810 SQL Queries\\
+    Across Multiple Models and Datasets\par}
+    \vspace{3cm}
+
+    {\large \today\par}
+
+    \vfill
+
+    {\large
+    Framework Reliability: 98.78\%\\
+    Model Accuracy Range: 27.7\% -- 69.7\%\\
+    Semantic Error Rate: 37.96\%\\
+    Execution Error Rate: 12.21\%
+    \par}
+
+\end{titlepage}
+
+% Table of contents
+\tableofcontents
+\newpage
+
+% Include the main chapter
+\input{error_analysis_chapter.tex}
+
+% Appendix
+\appendix
+\chapter{Additional Information}
+
+\section{Dataset Information}
+
+The analysis covers three major text-to-SQL datasets:
+
+\begin{itemize}
+    \item \textbf{Spider Dev}: 628 queries, cross-domain database coverage
+    \item \textbf{BIRD Dev}: 612 queries, complex real-world databases
+    \item \textbf{Archer Dev}: 570 queries, commonsense reasoning focus
+\end{itemize}
+
+\section{Model Information}
+
+Three models were evaluated:
+
+\begin{itemize}
+    \item \textbf{gpt-oss-120b}: 550 queries evaluated
+    \item \textbf{deepseek-v3}: 630 queries evaluated
+    \item \textbf{llama-4-maverick}: 630 queries evaluated
+\end{itemize}
+
+\section{Evaluation Methodology}
+
+Each query was evaluated using the following process:
+
+\begin{enumerate}
+    \item Generate SQL from natural language question using the model
+    \item Execute both generated SQL and gold (reference) SQL
+    \item Compare execution results for equality
+    \item Record any errors encountered during execution
+    \item Classify errors by type and root cause
+\end{enumerate}
+
+\section{Data Format}
+
+Results were stored in CSV format with the following key fields:
+
+\begin{itemize}
+    \item \code{question\_id}: Unique identifier for each question
+    \item \code{db\_id}: Database identifier
+    \item \code{question}: Natural language question
+    \item \code{gold\_sql}: Reference SQL query
+    \item \code{predicted\_sql}: Model-generated SQL query
+    \item \code{both\_executed}: Boolean indicating if both queries ran
+    \item \code{results\_equal}: Boolean indicating if results match
+    \item \code{gold\_error}: Error message from gold SQL (if any)
+    \item \code{pred\_error}: Error message from predicted SQL (if any)
+    \item \code{difficulty}: Query difficulty level (simple/moderate/challenging)
+    \item \code{model\_name}: Name of the model used
+    \item \code{dataset\_name}: Source dataset
+\end{itemize}
+
+\section{Error Classification Methodology}
+
+Errors were classified using a multi-stage process:
+
+\begin{enumerate}
+    \item \textbf{Initial categorization}: Group errors by error message patterns
+    \item \textbf{Root cause analysis}: Examine SQL queries to determine underlying causes
+    \item \textbf{Framework vs. Model attribution}: Determine if error is due to evaluation infrastructure or model prediction
+    \item \textbf{Validation}: Compare with gold SQL execution to confirm attribution
+\end{enumerate}
+
+\section{Statistical Significance}
+
+With 1,810 examples analyzed, the reported percentages have the following approximate 95\% confidence intervals:
+
+\begin{itemize}
+    \item Correct results (49.83\%): ±2.3\%
+    \item Semantic errors (37.96\%): ±2.2\%
+    \item Execution errors (12.21\%): ±1.5\%
+    \item Framework issues (1.22\%): ±0.5\%
+\end{itemize}
+
+\end{document}
